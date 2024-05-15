@@ -1,3 +1,63 @@
+
+def upload_video(gr_video, chat_state=None, num_segments=None, img_list=None):
+    print(gr_video)
+    chat_state = INIT_CONVERSATION.copy() if chat_state is None else chat_state
+    img_list = [] if img_list is None else img_list
+    
+    if gr_video is None:
+        return None, None, gr.update(interactive=True), gr.update(interactive=True, placeholder='Please upload video first!'), chat_state, None
+    
+    # Read the video from the local path
+    video_path = gr_video.name
+    cap = cv2.VideoCapture(video_path)
+    
+    # Check if the video was successfully opened
+    if not cap.isOpened():
+        return None, None, gr.update(interactive=True), gr.update(interactive=True, placeholder='Failed to open video!'), chat_state, None
+    
+    # Read frames from the video and append them to the image list
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        img_list.append(frame)
+    
+    # Release the video capture object
+    cap.release()
+    
+    llm_message, chat_state = chat.upload_video(img_list, chat_state, num_segments)
+    return (
+        gr.update(interactive=True),
+        gr.update(interactive=True),
+        gr.update(interactive=True, placeholder='Type and press Enter'),
+        gr.update(value="Start Chatting", interactive=False),
+        chat_state,
+        img_list,
+    )
+
+# Replace the existing upload_img function with the modified one
+def upload_img(gr_img, gr_video, chat_state=None, num_segments=None, img_list=None):
+    print(gr_img, gr_video)
+    chat_state = INIT_CONVERSATION.copy() if chat_state is None else chat_state
+    img_list = [] if img_list is None else img_list
+    
+    if gr_img is None and gr_video is None:
+        return None, None, gr.update(interactive=True),gr.update(interactive=True, placeholder='Please upload video/image first!'), chat_state, None
+    if gr_video: 
+        return upload_video(gr_video, chat_state, num_segments, img_list)
+    if gr_img:
+        llm_message, img_list,chat_state = chat.upload_img(gr_img, chat_state, img_list)
+        return (
+            gr.update(interactive=True),
+            gr.update(interactive=True),
+            gr.update(interactive=True, placeholder='Type and press Enter'),
+            gr.update(value="Start Chatting", interactive=False),
+            chat_state,
+            img_list
+        )
+    
+
+# The code is from copilot
 from argparse import ArgumentParser
 import copy
 import gradio as gr
@@ -12,6 +72,7 @@ from tasks.eval.eval_utils import (
     conv_templates
 )
 from tasks.eval.demo import pllava_theme
+import cv2
 
 SYSTEM="""You are Pllava, a large vision-language assistant. 
 You are able to understand the video content that the user provides, and assist the user with a variety of tasks using natural language.
